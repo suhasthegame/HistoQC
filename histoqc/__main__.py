@@ -27,6 +27,7 @@ from histoqc.data import managed_pkg_data
 @managed_pkg_data
 def main(argv=None):
     """main entry point for histoqc pipelines"""
+
     if argv is None:
         argv = sys.argv[1:]
 
@@ -63,6 +64,7 @@ def main(argv=None):
                         default=None)
     args = parser.parse_args(argv)
 
+    print(f"Parsed arguments: {args}")
     # --- multiprocessing and logging setup -----------------------------------
 
     setup_logging(capture_warnings=True, filter_warnings='ignore')
@@ -75,11 +77,14 @@ def main(argv=None):
     if not args.config:
         lm.logger.warning(f"Configuration file not set (--config), using default")
         config.read_string(read_config_template('default'))
+        print("Using default configuration.")
     elif os.path.exists(args.config):
         config.read(args.config) #Will read the config file
+        print(f"Reading configuration from file: {args.config}")
     else:
         lm.logger.warning(f"Configuration file {args.config} assuming to be a template...checking.")
         config.read_string(read_config_template(args.config))
+        print(f"Using configuration template: {args.config}")
 
     # --- provide models, pen and templates as fallbacks from package data ----
 
@@ -127,6 +132,7 @@ def main(argv=None):
         # more than one input_pattern is interpreted as a list of files
         # (basepath is ignored)
         files = list(args.input_pattern)
+        print(f"Multiple input patterns detected. Files: {files}")
 
     elif args.input_pattern[0].endswith('.tsv'):
         # input_pattern is a tsv file containing a list of files
@@ -137,11 +143,13 @@ def main(argv=None):
                     continue
                 fn = line.strip().split("\t")[0]
                 files.append(os.path.join(args.basepath, fn))
+        print(f"Reading file list from TSV. Files: {files}")
 
     else:
         # input_pattern is a glob pattern
         pth = os.path.join(args.basepath, args.input_pattern[0])
         files = glob.glob(pth, recursive=True)
+        print(f"Using glob pattern. Detected files: {files}")
 
     lm.logger.info("-" * 80)
     num_files = len(files)
@@ -172,6 +180,7 @@ def main(argv=None):
                                           initargs=(config,)) as pool:
                     try:
                         for idx, file_name in enumerate(files):
+                            print(f"Processing file (multi-process mode): {file_name}")
                             _ = pool.apply_async(
                                 func=worker,
                                 args=(idx, file_name),
@@ -186,6 +195,7 @@ def main(argv=None):
 
         else:
             for idx, file_name in enumerate(files):
+                print(f"Processing file: {file_name}")
                 try:
                     _success = worker(idx, file_name, **_shared_state)
                 except Exception as exc:
